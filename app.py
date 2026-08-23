@@ -1,11 +1,25 @@
-from retrieval.paper_search import search_papers
+from agents.planner import create_research_plan
+import json
 
 
-papers = search_papers("Retrieval Augmented Generation hallucination", limit=5)
+def main():
+    print("Welcome to AutoResearch")
 
-for i, paper in enumerate(papers, start=1):
-    print(f"\n{i}. {paper['title']}")
-    print(f"Year: {paper['year']}")
-    print(f"Authors: {', '.join(paper['authors'])}")
-    print(f"Abstract: {paper['abstract'][:300]}...")
-    print(f"URL: {paper['url']}")
+    user_query = input("\nEnter your research question: ")
+
+    try:
+        plan = create_research_plan(user_query)
+
+        print("\nGenerated Research Plan:\n")
+        print(json.dumps(plan, indent=4))
+
+        print("\nSub-questions for further research:")
+        for i, question in enumerate(plan["sub_questions"], start=1):
+            print(f"{i}. {question}")
+
+    except ValueError as error:
+        print(f"\nError: {error}")
+
+
+if __name__ == "__main__":
+    main()
