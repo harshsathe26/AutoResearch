@@ -1,5 +1,7 @@
 from agents.planner import create_research_plan
 from retrieval.retriever import retrieve_for_sub_questions
+from retrieval.graph_rag import build_graph_context
+
 import json
 
 
@@ -34,34 +36,70 @@ def main():
 
         retrieved_papers = retrieve_for_sub_questions(
             plan["sub_questions"],
-            papers_per_question=3
+            papers_per_question=10
+        )
+
+        print("\nResearch retrieval complete.")
+        print(
+            f"Total unique papers: "
+            f"{len(retrieved_papers)}"
         )
 
         # --------------------------------------------------
         # 3. DISPLAY RETRIEVED PAPERS
         # --------------------------------------------------
 
-        for question, papers in retrieved_papers.items():
+        print("\n" + "=" * 80)
+        print("UNIQUE RETRIEVED PAPERS")
+        print("=" * 80)
 
-            print("\n" + "=" * 80)
-
-            print("SUB-QUESTION:")
-            print(question)
-
-            print("\nRETRIEVED PAPERS:")
-
-            if not papers:
-                print("No papers found.")
-                continue
-
+        if not retrieved_papers:
+            print("No papers found.")
+        else:
             for i, paper in enumerate(
-                papers,
+                retrieved_papers,
                 start=1
             ):
                 print(f"\n{i}. {paper['title']}")
                 print(f"Year: {paper['year']}")
-                print(f"Authors: {', '.join(paper['authors'])}")
+                print(
+                    f"Relevance Score: "
+                    f"{paper['relevance_score']:.2f}"
+                )
+                print(
+                    f"Authors: "
+                    f"{', '.join(paper['authors'])}"
+                )
                 print(f"URL: {paper['url']}")
+
+                print("Retrieved for:")
+                for question in paper["source_questions"]:
+                    print(f"  - {question}")
+
+        # --------------------------------------------------
+        # 4. GRAPH RAG
+        # --------------------------------------------------
+
+        print("\nStarting Graph RAG context building...")
+
+        graph_context = build_graph_context(
+            user_query,
+            retrieved_papers,
+            top_k=5
+        )
+
+        print("\nGraph RAG context building complete.")
+
+        print("\n" + "=" * 80)
+        print("GRAPH RAG CONTEXT")
+        print("=" * 80)
+
+        print(
+            json.dumps(
+                graph_context,
+                indent=4
+            )
+        )
 
     except ValueError as error:
         print(f"\nError: {error}")
