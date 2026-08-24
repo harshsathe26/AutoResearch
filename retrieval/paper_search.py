@@ -1,3 +1,4 @@
+import re
 import requests
 
 
@@ -16,43 +17,87 @@ def decode_abstract(inverted_index):
     return " ".join(word for _, word in words)
 
 
+def clean_search_query(query):
+    query = query.strip()
+
+    # Remove wildcard characters that OpenAlex
+    # interprets specially.
+    query = re.sub(r"[*?]", "", query)
+
+    return query
+
+
 def search_papers(query, limit=5):
     url = "https://api.openalex.org/works"
 
+    query = clean_search_query(query)
+
     params = {
         "search": query,
-        "per-page": limit
+        "per_page": limit
     }
 
+    response = None
+
     try:
-        response = requests.get(url, params=params, timeout=20)
+        response = requests.get(
+            url,
+            params=params,
+            timeout=20
+        )
+
         response.raise_for_status()
 
         data = response.json()
+
         papers = []
 
         for paper in data.get("results", []):
+
             authors = []
 
-            for authorship in paper.get("authorships", []):
-                author = authorship.get("author", {})
+            for authorship in paper.get(
+                "authorships",
+                []
+            ):
+                author = authorship.get(
+                    "author",
+                    {}
+                )
+
                 if author.get("display_name"):
-                    authors.append(author["display_name"])
+                    authors.append(
+                        author["display_name"]
+                    )
 
             abstract = decode_abstract(
-                paper.get("abstract_inverted_index")
+                paper.get(
+                    "abstract_inverted_index"
+                )
             )
 
             papers.append({
-                "title": paper.get("display_name", "Title not available"),
+                "title": paper.get(
+                    "display_name",
+                    "Title not available"
+                ),
                 "abstract": abstract,
                 "authors": authors,
-                "year": paper.get("publication_year"),
-                "url": paper.get("doi") or paper.get("id")
+                "year": paper.get(
+                    "publication_year"
+                ),
+                "url": paper.get(
+                    "doi"
+                ) or paper.get("id")
             })
 
         return papers
 
     except requests.exceptions.RequestException as e:
         print(f"Error searching papers: {e}")
+
+        if response is not None:
+            print("OpenAlex response:")
+            print(response.text)
+
         return []
