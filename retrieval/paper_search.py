@@ -84,9 +84,7 @@ def _request_json(url, params, max_attempts=3):
                 timeout=25,
             )
 
-            if response.status_code == 429 or response.status_code in {
-                500, 502, 503, 504
-            }:
+            if response.status_code in {500, 502, 503, 504}:
                 if attempt == max_attempts - 1:
                     response.raise_for_status()
 
@@ -110,6 +108,12 @@ def _request_json(url, params, max_attempts=3):
             return response.json()
 
         except requests.exceptions.RequestException as exc:
+            if (
+                getattr(getattr(exc, "response", None), "status_code", None)
+                == 429
+            ):
+                raise
+
             if attempt == max_attempts - 1:
                 raise
 

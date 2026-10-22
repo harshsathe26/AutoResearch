@@ -2,3 +2,5 @@ requests
 python-dotenv
 google-genai
 python-docx
+fastapi
+uvicorn[standard]

@@ -10,8 +10,43 @@ from agents.verification_agent import (
     format_verification_report,
 )
 from agents.report_agent import generate_research_report
+from agents.iterative_retrieval_agent import (
+    run_iterative_retrieval,
+    format_retrieval_summary,
+)
+from evaluation import (
+    evaluate_research_run,
+    format_evaluation_summary,
+    save_evaluation,
+)
 from retrieval.retriever import retrieve_for_sub_questions
 from retrieval.graph_rag import build_graph_context
+
+
+def run_evaluation_step(**run_outputs):
+    """
+    STEP 7: evaluate whatever outputs this run produced.
+
+    Local and deterministic: no LLM calls, no network, no new retrieval.
+    Returns the structured result. A failure to SAVE evaluation.json is
+    reported but never fails the research run.
+    """
+    print("\n" + "=" * 70)
+    print("STEP 7: EVALUATION")
+    print("=" * 70)
+
+    evaluation = evaluate_research_run(**run_outputs)
+    print("\n" + format_evaluation_summary(evaluation))
+
+    try:
+        path = save_evaluation(evaluation)
+        print(f"\nEvaluation saved: {path}")
+    except OSError as error:
+        print(
+            f"\nWARNING: evaluation.json was not saved: "
+            f"{type(error).__name__}: {error}"
+        )
+    return evaluation
 
 
 def main():
@@ -41,6 +76,7 @@ def main():
 
         if not sub_questions:
             print("The Planner did not return any sub-questions.")
+            run_evaluation_step(user_query=user_query, plan=plan)
             return
 
         papers = retrieve_for_sub_questions(
@@ -48,10 +84,35 @@ def main():
             papers_per_question=10,
         )
 
+        # STEP 2B: Iterative Retrieval
+        # Checks whether the initial evidence is sufficient and, if not,
+        # runs a small bounded number of extra searches. It does not search
+        # again when the evidence is already sufficient. Its final,
+        # deduplicated collection replaces `papers` for ALL later stages.
+        print("\n" + "=" * 70)
+        print("STEP 2B: ITERATIVE RETRIEVAL")
+        print("=" * 70)
+
+        retrieval_result = run_iterative_retrieval(
+            user_query,
+            plan,
+            papers,
+            initial_queries=sub_questions,
+        )
+        papers = retrieval_result["papers"]
+
+        print("\n" + format_retrieval_summary(retrieval_result))
+
         if not papers:
             print(
                 "No relevant papers were retrieved. "
                 "The Analysis Agent will not run without evidence."
+            )
+            run_evaluation_step(
+                user_query=user_query,
+                plan=plan,
+                papers=papers,
+                retrieval_result=retrieval_result,
             )
             return
 
@@ -143,6 +204,9 @@ def main():
         print("STEP 6: REPORT GENERATION")
         print("=" * 70)
 
+        report = None
+        report_error = None
+
         try:
             report = generate_research_report(
                 user_query=user_query,
@@ -183,6 +247,8 @@ def main():
                     "\nWARNING: the claims in this report are NOT verified."
                 )
         except Exception as error:
+            report = None
+            report_error = f"{type(error).__name__}: {error}"
             print(
                 f"\nReport generation failed: "
                 f"{type(error).__name__}: {error}"
@@ -191,6 +257,18 @@ def main():
                 "No report file was confirmed as created. The analysis "
                 "and verification output above are unaffected."
             )
+
+        run_evaluation_step(
+            user_query=user_query,
+            plan=plan,
+            papers=papers,
+            retrieval_result=retrieval_result,
+            graph_context=graph_context,
+            analysis=report_analysis,
+            verification_error=verification_error,
+            report=report,
+            report_error=report_error,
+        )
 
         print("\n" + "=" * 70)
         print("RESEARCH PIPELINE COMPLETED")
