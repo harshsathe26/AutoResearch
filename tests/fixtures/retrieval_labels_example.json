@@ -1,0 +1,16 @@
+{
+  "note": "FIXTURE DATA for unit tests only. These labels were written by hand for a tiny made-up example; they are not universal scientific ground truth and not a benchmark result.",
+  "research_question": "How do federated learning systems protect privacy?",
+  "retrieved_ids": [
+    "https://doi.org/10.1000/a1",
+    "https://doi.org/10.1000/b2",
+    "https://openalex.org/W300",
+    "https://doi.org/10.1000/d4",
+    "https://doi.org/10.1000/e5"
+  ],
+  "relevant_ids": [
+    "10.1000/a1",
+    "https://openalex.org/W300",
+    "https://doi.org/10.1000/z9"
+  ]
+}
